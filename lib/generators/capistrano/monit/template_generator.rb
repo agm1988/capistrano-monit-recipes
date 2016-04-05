@@ -14,6 +14,7 @@ module Capistrano
           copy_file "monit_nginx.erb", "#{templates_path}/monit_nginx.erb"
           copy_file "monit_postgresql.erb", "#{templates_path}/monit_postgresql.erb"
           copy_file "monit_unicorn.erb", "#{templates_path}/monit_unicorn.erb"
+          copy_file "monit_delayed_job.erb", "#{templates_path}/monit_delayed_job.erb"
         end
 
       end

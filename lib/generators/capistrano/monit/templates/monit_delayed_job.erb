@@ -1,0 +1,6 @@
+<% fetch(:monit_delayed_job_workers_number).times do |n| %>
+  <% pid = "#{fetch(:monit_delayed_job_pids_path)}/delayed_job.#{n}.pid" %>
+  check process <%= "delayed_job.#{n}" %> with pidfile <%= pid %>
+    start program = "/usr/bin/env RAILS_ENV=<%= fetch(:stage) %> <%= fetch(:deploy_to) %>/current/bin/delayed_job start -i <%= n %>"
+    stop program = "/usr/bin/env RAILS_ENV=<%= fetch(:stage) %> <%= fetch(:deploy_to) %>/current/bin/delayed_job start -i <%= n %>"
+<% end %>

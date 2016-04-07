@@ -7,12 +7,13 @@ namespace :load do
     set :monit_configure_nginx, false
     set :monit_configure_postgresql, false
     set :monit_configure_unicorn, false
+    set :monit_configure_delayed_job, false
     set :monit_templates_path, 'config/deploy/templates'
     set :monitrc_path, '/etc/monit/monitrc'    
 
     # UNICORN TEMPLATE specific settings
-    set :monit_unicorn_process_name, -> { "unicorn_#{fetch(:application)}_#{fetch(:stage)}" }
-    set :monit_unicorn_pid, shared_path.join("tmp/pids/unicorn.pid")
+    set :monit_unicorn_process_name, -> { "#{fetch(:application)}_#{fetch(:stage)}_unicorn" }
+    set :monit_unicorn_pid, -> { "#{fetch(:deploy_to)}/current/tmp/pids/unicorn.pid" }
     set :monit_unicorn_service_name, -> { "unicorn_#{fetch(:application)}_#{fetch(:stage)}" }
     set :monit_unicorn_workers_number, 2
     set :monit_unicorn_worker_process_name, -> { "#{fetch(:application)}_#{fetch(:stage)}_unicorn_worker_" }
@@ -23,6 +24,10 @@ namespace :load do
 
     # POSTGRESQL TEMPLATE specific settings
     set :monit_postgresql_pid, '/var/run/postgresql/9.3-main.pid'
+
+    # DELAYED JOB TEMPLATE specific settings
+    set :monit_delayed_job_workers_number, 1
+    set :monit_delayed_job_pids_path, -> { "#{fetch(:deploy_to)}/current/tmp/pids" }
 
     # MONIT TEMPLATE specific settings
     set :monit_gmail_username, nil
@@ -68,6 +73,25 @@ namespace :monit do
     end
   end
 
+  desc 'Generate config file for delayed job'
+  task :generate_delayed_job_config do
+    on roles :app do
+      upload! monit_template('monit_delayed_job'), tmp_path('monit_delayed_job')
+      final_path('monit_delayed_job')
+    end
+  end
+
+  desc 'Monit Server setup tasks'
+  task :setup do
+    invoke 'monit:generate_config'
+    invoke 'monit:generate_nginx_config' if fetch(:monit_configure_nginx)
+    invoke 'monit:generate_postgresql_config' if fetch(:monit_configure_postgresql)
+    invoke 'monit:generate_unicorn_config' if fetch(:monit_configure_unicorn)
+    invoke 'monit:generate_delayed_job_config' if fetch(:monit_configure_delayed_job)
+    invoke 'monit:syntax'
+    invoke 'monit:reload'
+  end
+
   %w[start stop restart syntax reload].each do |command|
     desc "Run Monit #{command} script"
     task command do
@@ -77,16 +101,11 @@ namespace :monit do
     end
   end
 
-  after 'deploy:started', 'monit:reload'
+  # after 'deploy:started', 'monit:reload'
 
 end
 
-desc 'Server setup tasks'
-task :setup do
-  invoke 'monit:generate_config'
-  invoke 'monit:generate_nginx_config' if fetch(:monit_configure_nginx)
-  invoke 'monit:generate_postgresql_config' if fetch(:monit_configure_postgresql)
-  invoke 'monit:generate_unicorn_config' if fetch(:monit_configure_unicorn)
-  invoke 'monit:syntax'
-  invoke 'monit:reload'
+namespace :deploy do
+  after :started, 'monit:setup'
+  after :published, 'monit:reload'
 end
